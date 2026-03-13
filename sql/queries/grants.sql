@@ -13,3 +13,13 @@ VALUES (
     NOW()
 )
 RETURNING *;
+
+-- name: GetAllGrants :many
+SELECT *
+FROM grants
+ORDER BY created_at DESC;
+
+-- name: GetGrant :one
+SELECT *
+FROM grants
+WHERE id = $1;

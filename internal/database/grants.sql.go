@@ -9,6 +9,8 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const createGrant = `-- name: CreateGrant :one
@@ -48,6 +50,70 @@ func (q *Queries) CreateGrant(ctx context.Context, arg CreateGrantParams) (Grant
 		arg.Notes,
 		arg.Status,
 	)
+	var i Grant
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Organization,
+		&i.Amount,
+		&i.Deadline,
+		&i.Link,
+		&i.Notes,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getAllGrants = `-- name: GetAllGrants :many
+SELECT id, title, organization, amount, deadline, link, notes, status, created_at, updated_at
+FROM grants
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetAllGrants(ctx context.Context) ([]Grant, error) {
+	rows, err := q.db.QueryContext(ctx, getAllGrants)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Grant
+	for rows.Next() {
+		var i Grant
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Organization,
+			&i.Amount,
+			&i.Deadline,
+			&i.Link,
+			&i.Notes,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGrant = `-- name: GetGrant :one
+SELECT id, title, organization, amount, deadline, link, notes, status, created_at, updated_at
+FROM grants
+WHERE id = $1
+`
+
+func (q *Queries) GetGrant(ctx context.Context, id uuid.UUID) (Grant, error) {
+	row := q.db.QueryRowContext(ctx, getGrant, id)
 	var i Grant
 	err := row.Scan(
 		&i.ID,

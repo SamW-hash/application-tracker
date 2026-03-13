@@ -52,10 +52,21 @@ func HandlerCreateGrant(db *database.Queries) http.HandlerFunc {
 			Status:       params.Status,
 		})
 		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "Couldn't create grant", err)
+			util.RespondWithError(w, http.StatusInternalServerError, "Failed to create grant", err)
 			return
 		}
 
 		util.RespondWithJSON(w, http.StatusCreated, grant)
+	}
+}
+
+func HandlerGetAllGrants(db *database.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		grants, err := db.GetAllGrants(r.Context())
+		if err != nil {
+			util.RespondWithError(w, http.StatusInternalServerError, "Failed to fetch grants", err)
+			return
+		}
+		util.RespondWithJSON(w, http.StatusOK, grants)
 	}
 }
