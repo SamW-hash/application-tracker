@@ -3,8 +3,11 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 
 	"workspace/sam/application-tracker/internal/database"
 	util "workspace/sam/application-tracker/internal/jsonutil"
@@ -68,5 +71,33 @@ func HandlerGetAllGrants(db *database.Queries) http.HandlerFunc {
 			return
 		}
 		util.RespondWithJSON(w, http.StatusOK, grants)
+	}
+}
+
+func HandlerGetGrant(db *database.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "Invalid grant ID", err)
+			return
+		}
+
+		grant, err := db.GetGrant(r.Context(), id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				util.RespondWithError(w, http.StatusNotFound, "Grant not found", err)
+				return
+			}
+			util.RespondWithError(w, http.StatusInternalServerError, "Failed to get grant", err)
+			return
+		}
+		util.RespondWithJSON(w, http.StatusOK, grant)
+	}
+}
+
+func HandlerDeleteGrant(db *database.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
 	}
 }

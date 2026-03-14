@@ -66,6 +66,16 @@ func (q *Queries) CreateGrant(ctx context.Context, arg CreateGrantParams) (Grant
 	return i, err
 }
 
+const deleteGrant = `-- name: DeleteGrant :exec
+DELETE FROM grants
+WHERE id = $1
+`
+
+func (q *Queries) DeleteGrant(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteGrant, id)
+	return err
+}
+
 const getAllGrants = `-- name: GetAllGrants :many
 SELECT id, title, organization, amount, deadline, link, notes, status, created_at, updated_at
 FROM grants

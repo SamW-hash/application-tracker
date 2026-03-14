@@ -23,3 +23,7 @@ ORDER BY created_at DESC;
 SELECT *
 FROM grants
 WHERE id = $1;
+
+-- name: DeleteGrant :exec
+DELETE FROM grants
+WHERE id = $1;

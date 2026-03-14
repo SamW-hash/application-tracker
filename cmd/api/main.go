@@ -44,6 +44,8 @@ func main() {
 	router.HandleFunc("GET /api/grants", handlers.HandlerGetAllGrants(apiCfg.db))
 	router.HandleFunc("GET /api/grants/{id}", handlers.HandlerGetGrant(apiCfg.db))
 
+	router.HandleFunc("DELETE /api/grants/{id}", handlers.HandlerDeleteGrant(apiCfg.db))
+
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: router,
