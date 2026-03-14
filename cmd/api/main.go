@@ -46,6 +46,8 @@ func main() {
 
 	router.HandleFunc("DELETE /api/grants/{id}", handlers.HandlerDeleteGrant(apiCfg.db))
 
+	router.HandleFunc("PUT /api/grants/{id}", handlers.HandlerUpdateGrant(apiCfg.db))
+
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: router,

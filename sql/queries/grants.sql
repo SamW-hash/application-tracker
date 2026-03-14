@@ -27,3 +27,17 @@ WHERE id = $1;
 -- name: DeleteGrant :exec
 DELETE FROM grants
 WHERE id = $1;
+
+-- name: UpdateGrant :one
+UPDATE grants
+SET
+    title = $2,
+    organization = $3,
+    amount = $4,
+    deadline = $5,
+    link = $6,
+    notes = $7,
+    status = $8,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;

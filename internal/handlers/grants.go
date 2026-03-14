@@ -13,18 +13,28 @@ import (
 	util "workspace/sam/application-tracker/internal/jsonutil"
 )
 
+type UpdateGrantRequest struct {
+	Title        string    `json:"title"`
+	Organization string    `json:"organization"`
+	Amount       int       `json:"amount"`
+	Deadline     time.Time `json:"deadline"`
+	Link         string    `json:"link"`
+	Notes        string    `json:"notes"`
+	Status       string    `json:"status"`
+}
+type CreateGrantRequest struct {
+	Title        string    `json:"title"`
+	Organization string    `json:"organization"`
+	Amount       int       `json:"amount"`
+	Deadline     time.Time `json:"deadline"`
+	Link         string    `json:"link"`
+	Notes        string    `json:"notes"`
+	Status       string    `json:"status"`
+}
+
 func HandlerCreateGrant(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		type parameters struct {
-			Title        string    `json:"title"`
-			Organization string    `json:"organization"`
-			Amount       int       `json:"amount"`
-			Deadline     time.Time `json:"deadline"`
-			Link         string    `json:"link"`
-			Notes        string    `json:"notes"`
-			Status       string    `json:"status"`
-		}
-		params := parameters{}
+		params := CreateGrantRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 			util.RespondWithError(w, http.StatusBadRequest, "Invalid parameters", err)
 			return
@@ -110,5 +120,62 @@ func HandlerDeleteGrant(db *database.Queries) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func HandlerUpdateGrant(db *database.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "Invalid grant ID", err)
+			return
+		}
+
+		var req UpdateGrantRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&req); err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "Invalid parameters", err)
+			return
+		}
+		if req.Title == "" || req.Organization == "" {
+			util.RespondWithError(w, http.StatusBadRequest, "Title and organization are required", nil)
+			return
+		}
+
+		var link sql.NullString
+		if req.Link != "" {
+			link = sql.NullString{
+				String: req.Link,
+				Valid:  true,
+			}
+		}
+		var notes sql.NullString
+		if req.Notes != "" {
+			notes = sql.NullString{
+				String: req.Notes,
+				Valid:  true,
+			}
+		}
+		grant, err := db.UpdateGrant(r.Context(), database.UpdateGrantParams{
+			ID:           id,
+			Title:        req.Title,
+			Organization: req.Organization,
+			Amount:       int32(req.Amount),
+			Deadline:     req.Deadline,
+			Link:         link,
+			Notes:        notes,
+			Status:       req.Status,
+		})
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				util.RespondWithError(w, http.StatusNotFound, "Grant not found", err)
+				return
+			}
+			util.RespondWithError(w, http.StatusInternalServerError, "Failed to update grant", err)
+			return
+		}
+		util.RespondWithJSON(w, http.StatusOK, grant)
 	}
 }

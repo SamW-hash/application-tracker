@@ -139,3 +139,56 @@ func (q *Queries) GetGrant(ctx context.Context, id uuid.UUID) (Grant, error) {
 	)
 	return i, err
 }
+
+const updateGrant = `-- name: UpdateGrant :one
+UPDATE grants
+SET
+    title = $2,
+    organization = $3,
+    amount = $4,
+    deadline = $5,
+    link = $6,
+    notes = $7,
+    status = $8,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, title, organization, amount, deadline, link, notes, status, created_at, updated_at
+`
+
+type UpdateGrantParams struct {
+	ID           uuid.UUID
+	Title        string
+	Organization string
+	Amount       int32
+	Deadline     time.Time
+	Link         sql.NullString
+	Notes        sql.NullString
+	Status       string
+}
+
+func (q *Queries) UpdateGrant(ctx context.Context, arg UpdateGrantParams) (Grant, error) {
+	row := q.db.QueryRowContext(ctx, updateGrant,
+		arg.ID,
+		arg.Title,
+		arg.Organization,
+		arg.Amount,
+		arg.Deadline,
+		arg.Link,
+		arg.Notes,
+		arg.Status,
+	)
+	var i Grant
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Organization,
+		&i.Amount,
+		&i.Deadline,
+		&i.Link,
+		&i.Notes,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
