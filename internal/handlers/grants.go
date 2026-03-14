@@ -34,35 +34,41 @@ type CreateGrantRequest struct {
 
 func HandlerCreateGrant(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		params := CreateGrantRequest{}
-		if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		var req CreateGrantRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&req); err != nil {
 			util.RespondWithError(w, http.StatusBadRequest, "Invalid parameters", err)
+			return
+		}
+		if req.Title == "" || req.Organization == "" {
+			util.RespondWithError(w, http.StatusBadRequest, "Title and organization are required", nil)
 			return
 		}
 
 		var link sql.NullString
-		if params.Link != "" {
+		if req.Link != "" {
 			link = sql.NullString{
-				String: params.Link,
+				String: req.Link,
 				Valid:  true,
 			}
 		}
 		var notes sql.NullString
-		if params.Notes != "" {
+		if req.Notes != "" {
 			notes = sql.NullString{
-				String: params.Notes,
+				String: req.Notes,
 				Valid:  true,
 			}
 		}
 
 		grant, err := db.CreateGrant(r.Context(), database.CreateGrantParams{
-			Title:        params.Title,
-			Organization: params.Organization,
-			Amount:       int32(params.Amount),
-			Deadline:     params.Deadline,
+			Title:        req.Title,
+			Organization: req.Organization,
+			Amount:       int32(req.Amount),
+			Deadline:     req.Deadline,
 			Link:         link,
 			Notes:        notes,
-			Status:       params.Status,
+			Status:       req.Status,
 		})
 		if err != nil {
 			util.RespondWithError(w, http.StatusInternalServerError, "Failed to create grant", err)
