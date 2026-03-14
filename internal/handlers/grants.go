@@ -98,6 +98,17 @@ func HandlerGetGrant(db *database.Queries) http.HandlerFunc {
 
 func HandlerDeleteGrant(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "Invalid grant ID", err)
+			return
+		}
 
+		if err := db.DeleteGrant(r.Context(), id); err != nil {
+			util.RespondWithError(w, http.StatusInternalServerError, "Failed to delete grant", err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
