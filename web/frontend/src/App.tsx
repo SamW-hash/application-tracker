@@ -23,6 +23,29 @@ function App() {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("open");
   const [error, setError] = useState("");
+  const [editingGrant, setEditingGrant] = useState<Grant | null>(null);
+
+  function resetForm() {
+    setTitle("");
+    setOrganization("");
+    setAmount(0);
+    setDeadline("");
+    setLink("");
+    setNotes("");
+    setStatus("open");
+    setEditingGrant(null);
+  }
+
+  function startEditing(grant: Grant) {
+    setEditingGrant(grant);
+    setTitle(grant.title);
+    setOrganization(grant.organization);
+    setAmount(grant.amount);
+    setDeadline(grant.deadline ?? "");
+    setLink(grant.link ?? "");
+    setNotes(grant.notes ?? "");
+    setStatus(grant.status);
+  }
 
   async function fetchGrants() {
     try {
@@ -46,39 +69,47 @@ function App() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    const body = {
+      title,
+      organization,
+      amount,
+      deadline,
+      link,
+      notes,
+      status,
+    };
+
     try {
       setError("");
-      const res = await fetch("http://localhost:8080/api/grants", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          organization,
-          amount,
-          deadline,
-          link,
-          notes,
-          status,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to create grant");
+      if (editingGrant) {
+        const res = await fetch(`http://localhost:8080/api/grants/${editingGrant.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          throw new Error("Failed to update grant");
+        }
+        await fetchGrants();
+        resetForm();
+      } else {
+        const res = await fetch("http://localhost:8080/api/grants", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          throw new Error("Failed to create grant");
+        }
+        await fetchGrants();
+        resetForm();
       }
-
-      setTitle("");
-      setOrganization("");
-      setAmount(0);
-      setDeadline("");
-      setLink("");
-      setNotes("");
-      setStatus("open");
-
-      await fetchGrants();
     } catch (err) {
-      setError("Could not create grant");
+      setError(editingGrant ? "Could not update grant" : "Could not create grant");
       console.error(err);
     }
   }
@@ -107,7 +138,7 @@ function App() {
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <h2>Create Grant</h2>
+      <h2>{editingGrant ? "Edit Grant" : "Create Grant"}</h2>
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", marginBottom: "2rem" }}>
         <input
           type="text"
@@ -150,7 +181,14 @@ function App() {
           <option value="won">won</option>
           <option value="rejected">rejected</option>
         </select>
-        <button type="submit">Create Grant</button>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button type="submit">{editingGrant ? "Update Grant" : "Create Grant"}</button>
+          {editingGrant && (
+            <button type="button" onClick={resetForm}>
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
 
       <h2>All Grants</h2>
@@ -175,7 +213,10 @@ function App() {
               <p><strong>Status:</strong> {grant.status}</p>
               {grant.link && <p><strong>Link:</strong> {grant.link}</p>}
               {grant.notes && <p><strong>Notes:</strong> {grant.notes}</p>}
-              <button onClick={() => handleDelete(grant.id)}>Delete</button>
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <button type="button" onClick={() => startEditing(grant)}>Edit</button>
+                <button type="button" onClick={() => handleDelete(grant.id)}>Delete</button>
+              </div>
             </li>
           ))}
         </ul>
