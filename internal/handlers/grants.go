@@ -13,23 +13,57 @@ import (
 	util "workspace/sam/application-tracker/internal/jsonutil"
 )
 
+// GrantResponse is the JSON shape returned by the API (snake_case, null for optional strings).
+type GrantResponse struct {
+	ID           string  `json:"id"`
+	Title        string  `json:"title"`
+	Organization string  `json:"organization"`
+	Amount       int     `json:"amount"`
+	Deadline     string  `json:"deadline"`
+	Link         *string `json:"link"`
+	Notes        *string `json:"notes"`
+	Status       string  `json:"status"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
+}
+
+func grantToResponse(g database.Grant) GrantResponse {
+	resp := GrantResponse{
+		ID:           g.ID.String(),
+		Title:        g.Title,
+		Organization: g.Organization,
+		Amount:       int(g.Amount),
+		Deadline:     g.Deadline.Format("2006-01-02"),
+		Status:       g.Status,
+		CreatedAt:    g.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    g.UpdatedAt.Format(time.RFC3339),
+	}
+	if g.Link.Valid {
+		resp.Link = &g.Link.String
+	}
+	if g.Notes.Valid {
+		resp.Notes = &g.Notes.String
+	}
+	return resp
+}
+
 type UpdateGrantRequest struct {
-	Title        string    `json:"title"`
-	Organization string    `json:"organization"`
-	Amount       int       `json:"amount"`
-	Deadline     time.Time `json:"deadline"`
-	Link         string    `json:"link"`
-	Notes        string    `json:"notes"`
-	Status       string    `json:"status"`
+	Title        string `json:"title"`
+	Organization string `json:"organization"`
+	Amount       int    `json:"amount"`
+	Deadline     string `json:"deadline"`
+	Link         string `json:"link"`
+	Notes        string `json:"notes"`
+	Status       string `json:"status"`
 }
 type CreateGrantRequest struct {
-	Title        string    `json:"title"`
-	Organization string    `json:"organization"`
-	Amount       int       `json:"amount"`
-	Deadline     time.Time `json:"deadline"`
-	Link         string    `json:"link"`
-	Notes        string    `json:"notes"`
-	Status       string    `json:"status"`
+	Title        string `json:"title"`
+	Organization string `json:"organization"`
+	Amount       int    `json:"amount"`
+	Deadline     string `json:"deadline"`
+	Link         string `json:"link"`
+	Notes        string `json:"notes"`
+	Status       string `json:"status"`
 }
 
 func HandlerCreateGrant(db *database.Queries) http.HandlerFunc {
@@ -43,6 +77,11 @@ func HandlerCreateGrant(db *database.Queries) http.HandlerFunc {
 		}
 		if req.Title == "" || req.Organization == "" {
 			util.RespondWithError(w, http.StatusBadRequest, "Title and organization are required", nil)
+			return
+		}
+		deadline, err := time.Parse("2006-01-02", req.Deadline)
+		if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "Invalid deadline format, expected YYYY-MM-DD", err)
 			return
 		}
 
@@ -65,7 +104,7 @@ func HandlerCreateGrant(db *database.Queries) http.HandlerFunc {
 			Title:        req.Title,
 			Organization: req.Organization,
 			Amount:       int32(req.Amount),
-			Deadline:     req.Deadline,
+			Deadline:     deadline,
 			Link:         link,
 			Notes:        notes,
 			Status:       req.Status,
@@ -75,7 +114,7 @@ func HandlerCreateGrant(db *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		util.RespondWithJSON(w, http.StatusCreated, grant)
+		util.RespondWithJSON(w, http.StatusCreated, grantToResponse(grant))
 	}
 }
 
@@ -86,7 +125,14 @@ func HandlerGetAllGrants(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusInternalServerError, "Failed to fetch grants", err)
 			return
 		}
-		util.RespondWithJSON(w, http.StatusOK, grants)
+		if grants == nil {
+			grants = []database.Grant{}
+		}
+		out := make([]GrantResponse, len(grants))
+		for i, g := range grants {
+			out[i] = grantToResponse(g)
+		}
+		util.RespondWithJSON(w, http.StatusOK, out)
 	}
 }
 
@@ -108,7 +154,7 @@ func HandlerGetGrant(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusInternalServerError, "Failed to get grant", err)
 			return
 		}
-		util.RespondWithJSON(w, http.StatusOK, grant)
+		util.RespondWithJSON(w, http.StatusOK, grantToResponse(grant))
 	}
 }
 
@@ -149,6 +195,11 @@ func HandlerUpdateGrant(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusBadRequest, "Title and organization are required", nil)
 			return
 		}
+		deadline, err := time.Parse("2006-01-02", req.Deadline)
+		if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "Invalid deadline format, expected YYYY-MM-DD", err)
+			return
+		}
 
 		var link sql.NullString
 		if req.Link != "" {
@@ -169,7 +220,7 @@ func HandlerUpdateGrant(db *database.Queries) http.HandlerFunc {
 			Title:        req.Title,
 			Organization: req.Organization,
 			Amount:       int32(req.Amount),
-			Deadline:     req.Deadline,
+			Deadline:     deadline,
 			Link:         link,
 			Notes:        notes,
 			Status:       req.Status,
@@ -182,6 +233,6 @@ func HandlerUpdateGrant(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusInternalServerError, "Failed to update grant", err)
 			return
 		}
-		util.RespondWithJSON(w, http.StatusOK, grant)
+		util.RespondWithJSON(w, http.StatusOK, grantToResponse(grant))
 	}
 }

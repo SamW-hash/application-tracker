@@ -50,7 +50,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: router,
+		Handler: corsMiddleware(router),
 	}
 
 	log.Printf("starting server on %s", srv.Addr)
