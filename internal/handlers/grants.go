@@ -236,3 +236,15 @@ func HandlerUpdateGrant(db *database.Queries) http.HandlerFunc {
 		util.RespondWithJSON(w, http.StatusOK, grantToResponse(grant))
 	}
 }
+
+func HandlerResetDatabase(db *database.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := db.ResetDatabase(r.Context())
+		if err != nil {
+			util.RespondWithError(w, http.StatusInternalServerError, "Failed to reset database", err)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Database Reset!"))
+	}
+}

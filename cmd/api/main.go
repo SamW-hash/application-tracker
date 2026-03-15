@@ -45,6 +45,7 @@ func main() {
 	router.HandleFunc("GET /api/grants/{id}", handlers.HandlerGetGrant(apiCfg.db))
 
 	router.HandleFunc("DELETE /api/grants/{id}", handlers.HandlerDeleteGrant(apiCfg.db))
+	router.HandleFunc("DELETE /api/grants", handlers.HandlerResetDatabase(apiCfg.db))
 
 	router.HandleFunc("PUT /api/grants/{id}", handlers.HandlerUpdateGrant(apiCfg.db))
 

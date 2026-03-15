@@ -140,6 +140,15 @@ func (q *Queries) GetGrant(ctx context.Context, id uuid.UUID) (Grant, error) {
 	return i, err
 }
 
+const resetDatabase = `-- name: ResetDatabase :exec
+DELETE FROM grants
+`
+
+func (q *Queries) ResetDatabase(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, resetDatabase)
+	return err
+}
+
 const updateGrant = `-- name: UpdateGrant :one
 UPDATE grants
 SET
