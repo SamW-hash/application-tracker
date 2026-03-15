@@ -28,6 +28,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("deadline-soonest");
+  const [selectedGrantId, setSelectedGrantId] = useState<string | null>(null);
+
+  const selectedGrant = selectedGrantId ? (grants.find((g) => g.id === selectedGrantId) ?? null) : null;
 
   const statusCounts = grants.reduce(
     (acc, g) => {
@@ -35,12 +38,12 @@ function App() {
       acc.total++;
       if (s === "open") acc.open++;
       else if (s === "applied") acc.applied++;
-      else if (s === "won") acc.won++;
+      else if (s === "awarded" || s === "won") acc.awarded++;
       else if (s === "rejected") acc.rejected++;
       else if (s === "closed") acc.closed++;
       return acc;
     },
-    { total: 0, open: 0, applied: 0, won: 0, rejected: 0, closed: 0 }
+    { total: 0, open: 0, applied: 0, awarded: 0, rejected: 0, closed: 0 }
   );
 
   const filteredAndSortedGrants = (() => {
@@ -55,7 +58,12 @@ function App() {
       );
     }
     if (statusFilter !== "all") {
-      list = list.filter((g) => g.status.toLowerCase() === statusFilter.toLowerCase());
+      const filter = statusFilter.toLowerCase();
+      list = list.filter((g) => {
+        const s = g.status.toLowerCase();
+        if (filter === "awarded") return s === "awarded" || s === "won";
+        return s === filter;
+      });
     }
     const sorted = [...list];
     switch (sortBy) {
@@ -83,6 +91,14 @@ function App() {
     return sorted;
   })();
 
+  function formatTimestamp(iso: string): string {
+    if (iso.length < 10) return iso;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+
   function formatDeadline(deadline: string): string {
     if (deadline.length < 10) return deadline;
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -93,11 +109,44 @@ function App() {
     return `${months[m]} ${d}, ${y}`;
   }
 
+  type DeadlineUrgency = "overdue" | "soon" | "due-soon" | "normal";
+  function getDeadlineUrgency(deadline: string): DeadlineUrgency {
+    if (deadline.length < 10) return "normal";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const y = parseInt(deadline.slice(0, 4), 10);
+    const m = parseInt(deadline.slice(5, 7), 10) - 1;
+    const d = parseInt(deadline.slice(8, 10), 10);
+    const deadlineDate = new Date(y, m, d);
+    deadlineDate.setHours(0, 0, 0, 0);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysUntil = Math.round((deadlineDate.getTime() - today.getTime()) / msPerDay);
+    if (daysUntil < 0) return "overdue";
+    if (daysUntil <= 7) return "soon";
+    if (daysUntil <= 30) return "due-soon";
+    return "normal";
+  }
+
+  function deadlineUrgencyStyle(deadline: string): { color: string; badge?: string; badgeColor?: string } {
+    const u = getDeadlineUrgency(deadline);
+    switch (u) {
+      case "overdue":
+        return { color: "#ef4444", badge: "OVERDUE", badgeColor: "#ef4444" };
+      case "soon":
+        return { color: "#f97316", badge: "SOON", badgeColor: "#f97316" };
+      case "due-soon":
+        return { color: "#eab308", badge: undefined, badgeColor: undefined };
+      default:
+        return { color: "#e5e7eb", badge: undefined, badgeColor: undefined };
+    }
+  }
+
   const statusBadgeStyle = (status: string) => {
     const s = status.toUpperCase();
     const colors: Record<string, { bg: string; text: string }> = {
       OPEN: { bg: "#3b82f6", text: "#fff" },
       APPLIED: { bg: "#f97316", text: "#fff" },
+      AWARDED: { bg: "#22c55e", text: "#fff" },
       WON: { bg: "#22c55e", text: "#fff" },
       REJECTED: { bg: "#ef4444", text: "#fff" },
       CLOSED: { bg: "#6b7280", text: "#fff" },
@@ -126,6 +175,7 @@ function App() {
   }
 
   function startEditing(grant: Grant) {
+    setSelectedGrantId(null);
     setEditingGrant(grant);
     setTitle(grant.title);
     setOrganization(grant.organization);
@@ -339,7 +389,7 @@ function App() {
               <option value="open">open</option>
               <option value="applied">applied</option>
               <option value="closed">closed</option>
-              <option value="won">won</option>
+              <option value="awarded">awarded</option>
               <option value="rejected">rejected</option>
             </select>
             <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -371,7 +421,7 @@ function App() {
             {" · "}
             Applied: {statusCounts.applied}
             {" · "}
-            Won: {statusCounts.won}
+            Awarded: {statusCounts.awarded}
             {" · "}
             Rejected: {statusCounts.rejected}
             {" · "}
@@ -393,7 +443,7 @@ function App() {
               <option value="all">Status: All</option>
               <option value="open">Status: Open</option>
               <option value="applied">Status: Applied</option>
-              <option value="won">Status: Won</option>
+              <option value="awarded">Status: Awarded</option>
               <option value="rejected">Status: Rejected</option>
               <option value="closed">Status: Closed</option>
             </select>
@@ -431,22 +481,38 @@ function App() {
                 {filteredAndSortedGrants.map((grant) => (
                   <tr
                     key={grant.id}
+                    onClick={() => setSelectedGrantId((id) => (id === grant.id ? null : grant.id))}
                     onMouseEnter={() => setHoveredRowId(grant.id)}
                     onMouseLeave={() => setHoveredRowId(null)}
                     style={{
                       borderBottom: "1px dashed #4b5563",
-                      backgroundColor: hoveredRowId === grant.id ? "#4b5563" : "transparent",
+                      backgroundColor: hoveredRowId === grant.id ? "#4b5563" : selectedGrantId === grant.id ? "#4b5563" : "transparent",
                       transition: "background-color 0.15s ease",
+                      cursor: "pointer",
                     }}
                   >
                     <td style={{ padding: "0.5rem 0.75rem" }}>{grant.title}</td>
                     <td style={{ padding: "0.5rem 0.75rem" }}>{grant.organization}</td>
                     <td style={{ padding: "0.5rem 0.75rem", textAlign: "right" }}>${grant.amount.toLocaleString()}</td>
-                    <td style={{ padding: "0.5rem 0.75rem" }}>{formatDeadline(grant.deadline)}</td>
                     <td style={{ padding: "0.5rem 0.75rem" }}>
-                      <span style={statusBadgeStyle(grant.status)}>{grant.status.toUpperCase()}</span>
+                      {(() => {
+                        const urgency = deadlineUrgencyStyle(grant.deadline);
+                        return (
+                          <span style={{ color: urgency.color, display: "inline-flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                            {formatDeadline(grant.deadline)}
+                            {urgency.badge && (
+                              <span style={{ fontSize: "0.75rem", fontWeight: 600, color: urgency.badgeColor, border: `1px solid ${urgency.badgeColor}`, borderRadius: "4px", padding: "0.1rem 0.35rem" }}>
+                                [ {urgency.badge} ]
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </td>
-                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "right", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "0.5rem 0.75rem" }}>
+                      <span style={statusBadgeStyle(grant.status)}>{grant.status.toLowerCase() === "won" ? "AWARDED" : grant.status.toUpperCase()}</span>
+                    </td>
+                    <td style={{ padding: "0.5rem 0.75rem", textAlign: "right", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                       <button type="button" onClick={() => startEditing(grant)} style={secondaryButtonStyle}>Edit</button>
                       {" "}
                       <button type="button" onClick={() => handleDelete(grant.id)} style={{ ...secondaryButtonStyle, color: "#f87171", borderColor: "#f87171" }}>Delete</button>
@@ -455,6 +521,46 @@ function App() {
                 ))}
               </tbody>
             </table>
+          )}
+          {selectedGrant && (
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "1rem",
+                border: "1px dashed #4b5563",
+                borderRadius: "8px",
+                backgroundColor: "#1f2937",
+                color: "#e5e7eb",
+                fontSize: "0.9375rem",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                <strong style={{ color: "#f3f4f6" }}>Details: {selectedGrant.title}</strong>
+                <button
+                  type="button"
+                  onClick={() => setSelectedGrantId(null)}
+                  style={{ ...secondaryButtonStyle, fontSize: "0.8125rem", padding: "0.25rem 0.5rem" }}
+                >
+                  Close
+                </button>
+              </div>
+              {selectedGrant.notes && (
+                <p style={{ margin: "0 0 0.5rem 0", whiteSpace: "pre-wrap" }}><strong>Notes:</strong> {selectedGrant.notes}</p>
+              )}
+              {selectedGrant.link && (
+                <p style={{ margin: "0 0 0.5rem 0" }}>
+                  <strong>Link:</strong>{" "}
+                  <a href={selectedGrant.link} target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1", textDecoration: "underline" }}>
+                    {selectedGrant.link}
+                  </a>
+                </p>
+              )}
+              <p style={{ margin: 0, color: "#9ca3af", fontSize: "0.875rem" }}>
+                Created {formatTimestamp(selectedGrant.created_at)}
+                {" · "}
+                Updated {formatTimestamp(selectedGrant.updated_at)}
+              </p>
+            </div>
           )}
         </section>
       </div>

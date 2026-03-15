@@ -13,7 +13,6 @@ import (
 	util "workspace/sam/application-tracker/internal/jsonutil"
 )
 
-// GrantResponse is the JSON shape returned by the API (snake_case, null for optional strings).
 type GrantResponse struct {
 	ID           string  `json:"id"`
 	Title        string  `json:"title"`
